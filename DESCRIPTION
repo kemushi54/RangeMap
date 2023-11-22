@@ -1,0 +1,36 @@
+Package: RangeMap
+Type: Package
+Title: Range Map Workflow
+Version: 0.1.0
+Authors@R: 
+    person(given = "An-Yu", 
+           family = "Chang",
+           role = c("aut", "cre"),
+           email = "aychang4@gmail.com",
+           comment = c(ORCID = "0000-0001-8860-5749"))
+Description: This package provides a workflow for constructing species distribution
+    models (SDM) using MaxEnt and generating range maps. The workflow involves   
+    initializing a project structure, generating species data, constructing SDMs, 
+    generating binary maps, creating range map layers for expert review, and producing 
+    final range maps. The package aims to facilitate the efficient construction of SDMs 
+    and the visualization of species range maps.
+License: GPL-3
+Depends:
+    R (>= 4.3.2)
+Imports:
+    data.table,
+    dismo,
+    dplyr,
+    doParallel,
+    foreach,
+    ggplot2,
+    magrittr,
+    parallel,
+    raster,
+    rgdal,
+    rJava,
+    sf,
+    tidyr
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.2.3

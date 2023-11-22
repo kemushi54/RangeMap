@@ -1,0 +1,130 @@
+---
+title: "Range Map Workflow"
+author: "kemushi54"
+date: "2023-11-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+```
+
+This package is designed to facilitate the generation of range maps in 'Range Map Datasets for Terrestrial Vertebrates across Taiwan' (Chang et al., 2022, <https://doi.org/10.1016/j.dib.2022.108060>). For detailed information on the workflow and the dataset, please refer to the associated data paper.
+
+You can access the example code after installing the package. To save the example workflow R code to another location, use: `get_workflow(file_path = "scripts")`. To view the example workflow R code directly, use: `file.show(system.file("examples", "example_workflow.R", package = "RangeMap")`.
+
+## Initialize Project Structure
+
+Create the project structure using the default setting. Refer to `project_structure.R` by using `file.show(system.file("examples", "project_structure.R", package = "RangeMap")` for more details.
+
+```{r}
+# Call the function to create the project structure
+project_init()
+```
+
+## Load example species and occurrence data.
+
+The content of `sp_list` will use to name the models and range map files in the following steps. The occurrence should have three basic column: `name_c` for the species name used (consistent with `sp_list`), and `longitude` and `latitude` for the WGS84 coordinates.
+
+```{r}
+# Define the list of species
+sp_list <- c("紅鳩", "白尾鴝")
+
+# Load example occurrence data
+load(system.file("data", "example_occurrence.RData", package = "RangeMap"))
+```
+
+| name_c | longitude | latitude |
+|--------|-----------|----------|
+| 紅鳩   | 121.8810  | 25.01970 |
+| 紅鳩   | 121.3005  | 24.95321 |
+| 紅鳩   | 120.5196  | 22.87390 |
+| 白尾鴝 | 120.7824  | 23.08913 |
+| 白尾鴝 | 121.1110  | 24.02398 |
+
+: Example of occurrence data needed.
+
+## Generate Species Data
+
+Generate species data for species in `sp_list` in GeoJSON format. Save the data in "data_processed/species_data/" by default.
+
+```{r}
+lapply(sp_list, function(sp) {
+  # Filter occurrence data for the current species
+  sp_data <- db_data %>% filter(name_c == sp)
+  
+  # Generate species data using the generate_species_data function
+  generate_species_data(sp_data = sp_data, species_name = sp)
+})
+```
+
+## Construct Species Distribution Model (SDM)
+
+Construct Species Distribution Models (SDMs) for species in `sp_list`. The `env` variable is a list containing stacked environment variables used in MaxEnt, and `maxent_args` represents the MaxEnt argument settings.
+
+This step involves spatial subsampling of the occurrence data and model building using MaxEnt. The model settings include a cloglog transformation of the output, no bias files, the use of 10,000 background points, with a regularization multiplier of one. The process entails running five replicates for each subsampling dataset of each species, retaining 20% of each of these as random test data. This results in the creation of 100 sub-models for each species.
+
+The MaxEnt model results are saved in the "models/" directory by default use name in `sp_list`. The averages of the habitat suitability values from each of these 100 individual sub-models are saved in RDS format in the "results/gis/prediction_avg" directory by default.
+
+```{r}
+lapply(sp_list, function(sp) {
+  # Call the construct_sdm function
+  construct_sdm(species_name = sp, env = env, maxent_args = maxent_args)
+})
+```
+
+## Generate Binary Maps
+
+Convert continuous predicted results into binary values based on 11 thresholds provided by MaxEnt. Export a PNG files with 11 plots for each species.
+
+```{r}
+generate_binary_map(species_list = sp_list, 
+                    file_path = "data_processed/binary_map")
+```
+
+![Example binary map product.](images/%E7%B4%85%E9%B3%A9_maxent.png)
+
+## Generate Range Map Layers for Expert Review
+
+Generate range maps with thresholds selected by experts (using the `threshold_maxent` column in the threshold table, with abbreviated threshold names). Export PNG and GeoJSON files for each species.
+
+```{r}
+# Information of threshold select by expert of each species
+threshold_table <- data.frame(
+  species = sp_list,
+  threshold_maxent = c("EqltrsasCt", "BtopaatvCt")
+)
+
+# Generate range map layers
+generate_range_map_layer(species_list = sp_list, 
+                         r = 20, 
+                         threshold_table = threshold_table,
+                         output_dir_png = "results/plots/range_map_ori/")
+```
+
+Content of threshold table
+
+| species | threshold_maxent |
+|---------|------------------|
+| 紅鳩    | EqltrsasCt       |
+| 白尾鴝  | BtopaatvCt       |
+
+## Generate Final Range Maps Result
+
+Plot final range map result and export PNG file of each species.
+
+```{r}
+range_map <- lapply(sp_list, function(sp) {
+  # range map layer of species
+  sp_range_map <- st_read(sprintf("results/gis/range_map_modified/%s.geojson", sp))
+  
+  # Plot the final species range map
+  generate_species_range_map(species_name = sp, range_map = sp_range_map)
+  
+  ggsave(sprintf("%s.png", sp),
+         path = "results/plots/range_map_modified",
+         width = 7, height = 9, dpi = 300)
+})
+```
+
+![Example range map product.](images/%E7%B4%85%E9%B3%A9.png)
