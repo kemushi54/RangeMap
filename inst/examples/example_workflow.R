@@ -37,19 +37,20 @@ lapply(sp_list, function(sp) {
   sp_data <- example_occurrence %>% dplyr::filter(name_c == sp)
   generate_species_data(sp_data = sp_data,
                         species_name = sp)
-  }
+}
 )
 
 
 # Construct Species Distribution Models (SDM) using MaxEnt for each species.
 # This step generates MaxEnt models and the average predicted habitat suitability values.
 # The average predicted habitat suitability values saved in "results/gis/prediction_avg" in default.
-lapply(sp_list, function(sp)
-  construct_sdm(species_name = sp,
-                data_dir = "data_processed/species_data",
-                env = env,
-                maxent_args = maxent_args,
-                result_dir = "results/gis/prediction_avg"))
+maxent_models <-
+  lapply(sp_list, function(sp)
+    construct_sdm(species_name = sp,
+                  data_dir = "data_processed/species_data",
+                  env = env,
+                  maxent_args = maxent_args,
+                  result_dir = "results/gis/prediction_avg"))
 
 
 # Generate binary maps based on MaxEnt predictions.
@@ -70,6 +71,14 @@ generate_range_map_layer(species_list = sp_list,
                          threshold_table = threshold_table,
                          output_dir_png = "results/plots/range_map_ori/")
 
+
+# projection
+future_predict <-
+  lapply(seq_along(maxent_models), function(m)
+    lapply(seq_along(maxent_models[[m]]), function(r)
+      predict(maxent_model[[m]], future_env)) %>%
+      do.call(stack, .)
+  )
 
 # Generate final range maps.
 # Export PNG files for the final range map product.

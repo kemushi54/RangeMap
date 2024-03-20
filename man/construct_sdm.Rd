@@ -28,7 +28,7 @@ construct_sdm(
 \item{result_dir}{The path to the directory to store average predicted raster file, default is "results/gis/prediction_avg".}
 }
 \value{
-The function constructs the SDM and does not return any value. It saves
+The function constructs the SDM and returns the model as list. It also saves
 prediction results in the "results/gis/prediction_avg" directory as default.
 }
 \description{

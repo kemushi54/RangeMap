@@ -11,7 +11,7 @@
 #' @param model_dir The path to the directory store species model, default is "models".
 #' @param result_dir The path to the directory to store average predicted raster file, default is "results/gis/prediction_avg".
 #'
-#' @return The function constructs the SDM and does not return any value. It saves
+#' @return The function constructs the SDM and returns the model as list. It also saves
 #' prediction results in the "results/gis/prediction_avg" directory as default.
 #'
 #' @examples
@@ -77,41 +77,42 @@ construct_sdm <- function(species_name,
   registerDoParallel(cl)
 
   tryCatch({
-    # Export necessary variables to the workers
-    foreach(i = 1:r, .packages = c("data.table", "magrittr", "dismo", "rJava", "raster")) %dopar% {
-      # subsample of species data by 5km grids (GRIDID.y)
-      # create folder
-      path_sdm <- sprintf("%s/%s/%02d", model_dir, species_name, i)
+    species_models <-
+      # Export necessary variables to the workers
+      foreach(i = 1:r, .packages = c("data.table", "magrittr", "dismo", "rJava", "raster")) %dopar% {
+        # subsample of species data by 5km grids (GRIDID.y)
+        # create folder
+        path_sdm <- sprintf("%s/%s/%02d", model_dir, species_name, i)
 
-      if (!dir.exists(path_sdm)) {
-        dir.create(path_sdm, recursive = TRUE)
+        if (!dir.exists(path_sdm)) {
+          dir.create(path_sdm, recursive = TRUE)
+        }
+
+        sp_data <-
+          species_data %>%
+          .[, .SD[sample(.N ,(min(.N, 1)))], by = GRIDID.y] %>%
+          .[, list(X, Y)] %>%
+          as.matrix %>%
+          na.omit()
+
+        # run MaxEnt
+        SDM <-
+          maxent(env[[1]], sp_data,
+                 path = path_sdm,
+                 args = maxent_args,
+                 silent = TRUE)
+
+        # export prediction value
+        SDM.stack <-
+          lapply(1:length(SDM@models),
+                 function(j)
+                   predict(env[[1]], SDM@models[[j]])) %>%
+          stack()
+
+        saveRDS(SDM.stack, sprintf("%s/model_predict_stack.rds", path_sdm))
+
+        return(SDM)
       }
-
-      sp_data <-
-        species_data %>%
-        .[, .SD[sample(.N ,(min(.N, 1)))], by = GRIDID.y] %>%
-        .[, list(X, Y)] %>%
-        as.matrix %>%
-        na.omit()
-
-      # run MaxEnt
-      SDM <-
-        maxent(env[[1]], sp_data,
-               path = path_sdm,
-               args = maxent_args,
-               silent = TRUE)
-
-      # export prediction value
-      SDM.stack <-
-        lapply(1:length(SDM@models),
-               function(j)
-                 predict(env[[1]], SDM@models[[j]])) %>%
-        stack()
-
-      saveRDS(SDM.stack, sprintf("%s/model_predict_stack.rds", path_sdm))
-
-      return(path_sdm)
-    }
 
     # export prediction raster file
     if (!dir.exists(result_dir)) {
@@ -131,6 +132,8 @@ construct_sdm <- function(species_name,
 
     saveRDS(prediction_avg,
             sprintf("%s/%s.rds", result_dir, species_name))
+
+    return(species_models)
 
   }, finally = {
     # Stop the cluster when done
