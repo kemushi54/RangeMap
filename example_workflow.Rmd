@@ -82,7 +82,7 @@ generate_binary_map(species_list = sp_list,
                     file_path = "data_processed/binary_map")
 ```
 
-![Example binary map product.](images/%E7%B4%85%E9%B3%A9_maxent.png)
+![Example binary map product.](images/redbird_maxent.png)
 
 ## Generate Range Map Layers for Expert Review
 
@@ -127,4 +127,4 @@ range_map <- lapply(sp_list, function(sp) {
 })
 ```
 
-![Example range map product.](images/%E7%B4%85%E9%B3%A9.png)
+![Example range map product.](images/redbird.png)

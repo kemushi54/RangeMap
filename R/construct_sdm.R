@@ -121,7 +121,7 @@ construct_sdm <- function(species_name,
 
     prediction <-
       foreach(i = 1:20, .combine = stack, .packages = "raster") %dopar% {
-        path_sdm <- sprintf("models/%s/%02d", species_name, i)
+        path_sdm <- sprintf("%s/%s/%02d", model_dir, species_name, i)
 
         prediction <- readRDS(sprintf("%s/model_predict_stack.rds", path_sdm)) %>%
           calc(fun = mean)
